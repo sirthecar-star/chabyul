@@ -316,12 +316,12 @@ function cmpWins(){ const c = cmpState(); return c.on ? c.rows.filter(r => r.win
 function cmpHtml(){
   const c = cmpState();
   const rows = c.rows.map((r, i) => `<tr><td><input type="text" data-cmp="r.${i}.k" value="${esc(r.k)}" placeholder="${i ? "비교요소 " + (i + 1) : "예) 가격"}"></td><td class="me"><input type="text" data-cmp="r.${i}.me" value="${esc(r.me)}" placeholder="${i ? "" : "예) 월 9,900원"}"></td>${r.c.map((v, j) => `<td><input type="text" data-cmp="r.${i}.c${j}" value="${esc(v)}" placeholder="${i ? "" : j ? "" : "예) 월 14,900원"}"></td>`).join("")}<td class="cmpb"><button type="button" class="mini ${r.win ? "on" : ""}" data-cmpact="win.${i}" title="우리가 앞서는 칸에 표시 (설명 초안에 반영)">★</button><button type="button" class="mini" data-cmpact="del.${i}" title="이 줄 지우기">✕</button></td></tr>`).join("");
-  return `<p class="tip" style="margin-left:0">고른 카드가 경쟁사와 어떻게 다른지 표로 비교해요. <b>경쟁사 분석은 꼭 작성</b>해 주세요. 우리가 앞서는 줄은 <b>★</b>을 눌러 표시하면 설명 초안에 반영돼요.</p>`
+  return `<p class="tip" style="margin-left:0">고른 카드가 경쟁사와 어떻게 다른지 표로 비교해요. <b>경쟁사 분석은 꼭 작성</b>해 주세요. 우리가 앞서는 줄은 <b>★</b>을 눌러 표시하면, ‘설명 초안 만들기’를 다시 눌렀을 때 설명에 반영돼요.</p>`
     + `<div class="cmpwrap"><table class="cmp"><tr><th>구분</th><th class="me">당사</th>${c.names.map((n, j) => `<th><div class="cmph"><input type="text" data-cmp="n.${j}" value="${esc(n)}" placeholder="경쟁사${j + 1}">${c.names.length > CMP_COLS_MIN ? `<button type="button" class="cmpx" data-cmpact="delcol.${j}" title="이 경쟁사 열 지우기">✕</button>` : ""}</div></th>`).join("")}<th class="cmpb">★ ✕</th></tr>${rows}</table></div>`
     + `<div class="cmpact"><button type="button" class="mini big" data-cmpact="addcol" ${c.names.length >= CMP_COLS_MAX ? "disabled" : ""}>＋ 경쟁사 추가 (${c.names.length}/${CMP_COLS_MAX})</button><button type="button" class="mini big" data-cmpact="add" ${c.rows.length >= CMP_ROWS_MAX ? "disabled" : ""}>＋ 비교요소 추가 (${c.rows.length}/${CMP_ROWS_MAX})</button><button type="button" class="mini big" data-cmpact="cards">🃏 고른 카드로 비교요소 채우기</button><button type="button" class="mini big" data-cmpact="market">🔍 시장조사·경쟁분석에서 경쟁사 가져오기</button></div>`
     + `<div class="hintline">경쟁사 이름은 직접 적거나 시장조사·경쟁분석 도우미에서 가져올 수 있어요. 경쟁사 칸에는 홈페이지·후기처럼 확인한 내용을 적어 주세요.</div>`;
 }
-function cmpRefresh(){ const i = GW.sections.findIndex(s => s.t === "custom" && s.title === "경쟁사 비교표"), el = document.querySelector(`.sec[data-sec="${i}"]`); if(el && i >= 0) el.outerHTML = sectionHtml(GW.sections[i], i); }
+function cmpRefresh(){ const i = GW.sections.findIndex(s => s.t === "custom"), el = document.querySelector(`.sec[data-sec="${i}"]`); if(el && i >= 0) el.outerHTML = sectionHtml(GW.sections[i], i); }
 document.addEventListener("input", e => {
   const t = e.target, k = t.dataset && t.dataset.cmp; if(!k) return;
   const c = cmpState(), p = k.split("."); if(p[0] === "n") c.names[+p[1]] = t.value; else { const r = c.rows[+p[1]]; if(!r) return; if(p[2] === "k") r.k = t.value; else if(p[2] === "me") r.me = t.value; else r.c[+p[2].slice(1)] = t.value; }
@@ -364,7 +364,6 @@ const GW = {
   init(){ ["item", "desc", "team", "members", "solo"].forEach(k => { if(d[k] === undefined) d[k] = ""; }); if(d.author && !d._mig){ d._mig = true; if(!d.team && !d.solo){ d.mode = "solo"; d.solo = d.author; } } d.mode = d.mode === "solo" ? "solo" : "team"; cmpState(); },
   sections: [
     {t: "slots", title: "카드별 차별화 아이디어", sub: "카드마다 어떤 점이 달라지는지 적어 보세요", coach: true},
-    {t: "custom", title: "경쟁사 비교표", sub: "필수 · 고른 카드가 경쟁사와 어떻게 다른지 표로 비교", html: () => cmpHtml()},
     {t: "draft", k: "desc", title: "차별화 아이디어 설명", sub: "카드와 아이디어를 엮어 하나의 설명으로", btn: "설명 초안 만들기", note: "선택한 카드와 아이디어로 초안을 만들어 드려요", ph: "차별화 관점에서 아이템/아이디어를 설명하세요", h: 200,
       make(){
         const rs = d.rows.filter(r => r.id !== null); if(!rs.length){ alert("먼저 차별화 카드를 1개 이상 선택해 주세요."); return null; }
@@ -373,9 +372,10 @@ const GW = {
         rs.forEach((r, i) => { const it = cardOf(r); s += `${i + 1}. ${it.n}${clean(r.idea) ? " — " + clean(r.idea) : ""}\n   (${it.desc.split(". ")[0].replace(/\.$/, "")}.)\n`; });
         const wn = cmpWins(); if(wn.length) s += `\n경쟁사와 비교하면 ${wn.join(", ")}에서 앞섭니다.\n`;
         return s + `\n이 차별화를 통해 고객은 기존 제품에서 느꼈던 불편이나 아쉬움이 줄어들고, ‘${name}’을(를) 선택해야 하는 분명한 이유를 얻게 됩니다.\n[고객 한 줄 메시지] (이 아이템이 고객에게 약속하는 것을 한 문장으로 적어 보세요.)`;
-      }}
+      }},
+    {t: "custom", title: "경쟁사 차별요소 비교", sub: "필수 · 고른 카드가 경쟁사와 어떻게 다른지 표로 비교", html: () => cmpHtml()}
   ],
-  extraChecks: () => [[d.mode === "solo" ? "참여자 이름" : "팀 이름 · 팀원", d.mode === "solo" ? !!clean(d.solo) : !!(clean(d.team) || clean(d.members))], ["아이디어/아이템 이름", !!clean(d.item)], ["차별화 아이디어 1개 이상 입력", d.rows.some(r => r.id !== null && clean(r.idea))], ["경쟁사 비교표 작성 (경쟁사·비교요소)", !!cmpDoc() && cmpState().names.some(n => clean(n))], ["차별화 설명 작성", !!clean(d.desc)]],
+  extraChecks: () => [[d.mode === "solo" ? "참여자 이름" : "팀 이름 · 팀원", d.mode === "solo" ? !!clean(d.solo) : !!(clean(d.team) || clean(d.members))], ["아이디어/아이템 이름", !!clean(d.item)], ["차별화 아이디어 1개 이상 입력", d.rows.some(r => r.id !== null && clean(r.idea))], ["차별화 설명 작성", !!clean(d.desc)], ["경쟁사 차별요소 비교 작성 (경쟁사·비교요소)", !!cmpDoc() && cmpState().names.some(n => clean(n))]],
   doc(){
     return {info: [...(d.mode === "solo" ? [["참여 형태", "개인"], ["참여자", d.solo]] : [["참여 형태", "팀"], ["팀 이름", d.team], ["팀원", d.members]]), ["아이디어/아이템", d.item]],
       tables: [{head: ["번호", "차별화 카드", "차별화 아이디어"], widths: [900, 2600, 6800], rows: d.rows.map((r, i) => [i + 1, cardOf(r) ? cardOf(r).n : "-", clean(r.idea) || "-"]).filter((x, i) => d.rows[i].id !== null || clean(d.rows[i].idea))}, ...(cmpDoc() ? [cmpDoc()] : [])],
