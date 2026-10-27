@@ -229,7 +229,7 @@
   @media print{ body.plan-open > *:not(#planView){display:none !important} #planView{position:static;background:#fff;overflow:visible;display:block !important} #planView .pbar{display:none} #planView .pdoc{box-shadow:none;margin:0;padding:0;max-width:none} .ph1,.ph2,.ph3{break-after:avoid} .ptb tr,.pp{break-inside:avoid} }
   @media print{ header,.steps,.prog,.intro,.imp,.card,nav,.final,.chk,.nodoc{display:none !important} body{background:#fff} .wrap{padding:0;max-width:none} .doc{border:0;box-shadow:none;padding:0;margin:0} @page{size:A4;margin:14mm} }
   #ver{background:#dc2626;color:#fff;border-radius:99px;padding:2px 11px;font-size:12.5px;font-weight:700;white-space:nowrap}
-</style>
+.cmpwrap{overflow-x:auto;margin:6px 0}.cmp{border-collapse:collapse;width:100%;min-width:660px}.cmp th,.cmp td{border:1px solid #cbd5e1;padding:3px}.cmp th{background:#4472c4;color:#fff;font-size:13px}.cmp th.me small{display:block;font-weight:400;font-size:11px;opacity:.85}.cmp td.me{background:#fffbeb}.cmp input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;border:1px solid transparent;border-radius:6px;padding:5px 6px;background:transparent}.cmp td input:focus{border-color:var(--accent);background:#fff}.cmp th.me{background:#d97706}.cmp td.me{background:#fff3d6}.cmp .cmph{display:flex;gap:3px;align-items:center}.cmp .cmpx{border:0;background:rgba(255,255,255,.25);color:#fff;border-radius:6px;cursor:pointer;font-size:12px;padding:3px 6px}.cmp th input{color:#fff;background:rgba(255,255,255,.18);text-align:center}.cmp th input::placeholder{color:#dbe7ff}.cmp td.cmpb,.cmp th.cmpb{width:74px;text-align:center;white-space:nowrap}.cmp .mini.on{background:#f59e0b;border-color:#f59e0b;color:#fff}.cmpact{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}</style>
 </head>
 <body>
 <header>
@@ -296,6 +296,59 @@ const fname = ext => `${GW.filePre}_${String((d.mode === "solo" ? d.solo : (d.te
 
 
 
+// ═════════ 경쟁사 비교표 (선택) ═════════
+const CMP_COLS_MIN = 1, CMP_COLS = 3, CMP_COLS_MAX = 5, CMP_ROWS_MIN = 4, CMP_ROWS_MAX = 6;
+function cmpState(){
+  if(!d.cmp || typeof d.cmp !== "object") d.cmp = {};
+  const c = d.cmp; c.on = true;   // 경쟁사 비교표는 건너뛰기 없이 꼭 작성
+  if(!Array.isArray(c.names)) c.names = []; const nc = Math.min(CMP_COLS_MAX, Math.max(CMP_COLS_MIN, c.names.length || CMP_COLS)); while(c.names.length < nc) c.names.push(""); c.names.length = nc;
+  if(!Array.isArray(c.rows)) c.rows = []; while(c.rows.length < CMP_ROWS_MIN) c.rows.push({}); c.rows.length = Math.min(c.rows.length, CMP_ROWS_MAX);
+  c.rows.forEach(r => { r.k = r.k || ""; r.me = r.me || ""; if(!Array.isArray(r.c)) r.c = []; while(r.c.length < nc) r.c.push(""); r.c.length = nc; r.win = !!r.win; });
+  return c;
+}
+const cmpFilled = r => !!(clean(r.k) || clean(r.me) || r.c.some(x => clean(x)));
+function cmpCols(){ const c = cmpState(), on = c.names.map((n, j) => clean(n) || c.rows.some(r => clean(r.c[j])) ? j : -1).filter(j => j >= 0); return on.length ? on : [0]; }
+function cmpDoc(){
+  const c = cmpState(); if(!c.on) return null; const rs = c.rows.filter(cmpFilled); if(!rs.length) return null; const cols = cmpCols();
+  return {cmp: true, head: ["구분", "당사", ...cols.map(j => clean(c.names[j]) || "경쟁사" + (j + 1))], rows: rs.map(r => [(r.win ? "★ " : "") + (clean(r.k) || "-"), clean(r.me) || "-", ...cols.map(j => clean(r.c[j]) || "-")])};
+}
+function cmpWins(){ const c = cmpState(); return c.on ? c.rows.filter(r => r.win && clean(r.k)).map(r => clean(r.k)) : []; }
+function cmpHtml(){
+  const c = cmpState();
+  const rows = c.rows.map((r, i) => `<tr><td><input type="text" data-cmp="r.${i}.k" value="${esc(r.k)}" placeholder="${i ? "비교요소 " + (i + 1) : "예) 가격"}"></td><td class="me"><input type="text" data-cmp="r.${i}.me" value="${esc(r.me)}" placeholder="${i ? "" : "예) 월 9,900원"}"></td>${r.c.map((v, j) => `<td><input type="text" data-cmp="r.${i}.c${j}" value="${esc(v)}" placeholder="${i ? "" : j ? "" : "예) 월 14,900원"}"></td>`).join("")}<td class="cmpb"><button type="button" class="mini ${r.win ? "on" : ""}" data-cmpact="win.${i}" title="우리가 앞서는 칸에 표시 (설명 초안에 반영)">★</button><button type="button" class="mini" data-cmpact="del.${i}" title="이 줄 지우기">✕</button></td></tr>`).join("");
+  return `<p class="tip" style="margin-left:0">고른 카드가 경쟁사와 어떻게 다른지 표로 비교해요. <b>경쟁사 분석은 꼭 작성</b>해 주세요. 우리가 앞서는 줄은 <b>★</b>을 눌러 표시하면 설명 초안에 반영돼요.</p>`
+    + `<div class="cmpwrap"><table class="cmp"><tr><th>구분</th><th class="me">당사</th>${c.names.map((n, j) => `<th><div class="cmph"><input type="text" data-cmp="n.${j}" value="${esc(n)}" placeholder="경쟁사${j + 1}">${c.names.length > CMP_COLS_MIN ? `<button type="button" class="cmpx" data-cmpact="delcol.${j}" title="이 경쟁사 열 지우기">✕</button>` : ""}</div></th>`).join("")}<th class="cmpb">★ ✕</th></tr>${rows}</table></div>`
+    + `<div class="cmpact"><button type="button" class="mini big" data-cmpact="addcol" ${c.names.length >= CMP_COLS_MAX ? "disabled" : ""}>＋ 경쟁사 추가 (${c.names.length}/${CMP_COLS_MAX})</button><button type="button" class="mini big" data-cmpact="add" ${c.rows.length >= CMP_ROWS_MAX ? "disabled" : ""}>＋ 비교요소 추가 (${c.rows.length}/${CMP_ROWS_MAX})</button><button type="button" class="mini big" data-cmpact="cards">🃏 고른 카드로 비교요소 채우기</button><button type="button" class="mini big" data-cmpact="market">🔍 시장조사·경쟁분석에서 경쟁사 가져오기</button></div>`
+    + `<div class="hintline">경쟁사 이름은 직접 적거나 시장조사·경쟁분석 도우미에서 가져올 수 있어요. 경쟁사 칸에는 홈페이지·후기처럼 확인한 내용을 적어 주세요.</div>`;
+}
+function cmpRefresh(){ const i = GW.sections.findIndex(s => s.t === "custom" && s.title === "경쟁사 비교표"), el = document.querySelector(`.sec[data-sec="${i}"]`); if(el && i >= 0) el.outerHTML = sectionHtml(GW.sections[i], i); }
+document.addEventListener("input", e => {
+  const t = e.target, k = t.dataset && t.dataset.cmp; if(!k) return;
+  const c = cmpState(), p = k.split("."); if(p[0] === "n") c.names[+p[1]] = t.value; else { const r = c.rows[+p[1]]; if(!r) return; if(p[2] === "k") r.k = t.value; else if(p[2] === "me") r.me = t.value; else r.c[+p[2].slice(1)] = t.value; }
+  refreshAll(); persist();
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest && e.target.closest("[data-cmpact]"); if(!b) return;
+  const c = cmpState(), [op, ix] = b.dataset.cmpact.split(".");
+  if(op === "on") c.on = true;
+  else if(op === "off") c.on = false;
+  else if(op === "win") c.rows[+ix].win = !c.rows[+ix].win;
+  else if(op === "del"){ if(c.rows.length > CMP_ROWS_MIN) c.rows.splice(+ix, 1); else c.rows[+ix] = {}; }
+  else if(op === "add"){ if(c.rows.length >= CMP_ROWS_MAX) return; c.rows.push({}); }
+  else if(op === "addcol"){ if(c.names.length >= CMP_COLS_MAX) return; c.names.push(""); }
+  else if(op === "delcol"){ if(c.names.length <= CMP_COLS_MIN) return; c.names.splice(+ix, 1); c.rows.forEach(r => r.c.splice(+ix, 1)); }
+  else if(op === "cards"){
+    const cs = d.rows.filter(r => r.id !== null).map(r => cardOf(r)).filter(Boolean); if(!cs.length){ alert("먼저 1단계에서 차별화 카드를 고르면 비교요소를 채워 드려요."); return; }
+    (cs.some(x => x.cat === "포지셔닝") ? cs.filter(x => x.cat === "포지셔닝") : cs).forEach(cd => { const lb = "‘" + cd.n + "’ 측면"; if(c.rows.some(r => clean(r.k) === lb)) return; let r = c.rows.find(x => !clean(x.k)); if(!r){ if(c.rows.length >= CMP_ROWS_MAX) return; r = {}; c.rows.push(r); } r.k = lb; });
+  }
+  else if(op === "market"){
+    let comp = []; try { comp = (JSON.parse(localStorage.getItem("ss-pub-market") || "{}").comp || []).map(x => String(x || "").trim()).filter(Boolean); } catch(e){}
+    if(!comp.length){ alert("시장조사·경쟁분석 도우미에 입력한 경쟁사가 아직 없어요.\n경쟁사 이름은 표에 직접 적어도 돼요."); return; }
+    let j = 0; comp.forEach(n => { if(c.names.some(x => clean(x) === n)) return; while(j < c.names.length && clean(c.names[j])) j++; if(j >= c.names.length && c.names.length < CMP_COLS_MAX){ c.names.push(""); cmpState(); } if(j < c.names.length) c.names[j] = n; });
+  }
+  cmpState(); cmpRefresh(); refreshAll(); persist();
+});
+
 // ═════════ 차별화 ═════════
 const PAL = [["#b45309", "#fde68a"], ["#0369a1", "#bae6fd"], ["#be185d", "#fbcfe8"], ["#0f766e", "#99f6e4"], ["#7c3aed", "#ddd6fe"], ["#475569", "#e2e8f0"]];
 const GW = {
@@ -308,22 +361,24 @@ const GW = {
   fullMsg: c => "차별화 카드는 최대 4개까지 고를 수 있어요.\n다른 카드를 고르려면 먼저 선택을 취소해 주세요.",
   globals: [],
   slotFields: [{k: "idea", label: "차별화 아이디어", type: "textarea", ph: "선택한 이유나 좀더 구체적인 설명을 추가해주세요", wide: true}],
-  init(){ ["item", "desc", "team", "members", "solo"].forEach(k => { if(d[k] === undefined) d[k] = ""; }); if(d.author && !d._mig){ d._mig = true; if(!d.team && !d.solo){ d.mode = "solo"; d.solo = d.author; } } d.mode = d.mode === "solo" ? "solo" : "team"; },
+  init(){ ["item", "desc", "team", "members", "solo"].forEach(k => { if(d[k] === undefined) d[k] = ""; }); if(d.author && !d._mig){ d._mig = true; if(!d.team && !d.solo){ d.mode = "solo"; d.solo = d.author; } } d.mode = d.mode === "solo" ? "solo" : "team"; cmpState(); },
   sections: [
     {t: "slots", title: "카드별 차별화 아이디어", sub: "카드마다 어떤 점이 달라지는지 적어 보세요", coach: true},
+    {t: "custom", title: "경쟁사 비교표", sub: "필수 · 고른 카드가 경쟁사와 어떻게 다른지 표로 비교", html: () => cmpHtml()},
     {t: "draft", k: "desc", title: "차별화 아이디어 설명", sub: "카드와 아이디어를 엮어 하나의 설명으로", btn: "설명 초안 만들기", note: "선택한 카드와 아이디어로 초안을 만들어 드려요", ph: "차별화 관점에서 아이템/아이디어를 설명하세요", h: 200,
       make(){
         const rs = d.rows.filter(r => r.id !== null); if(!rs.length){ alert("먼저 차별화 카드를 1개 이상 선택해 주세요."); return null; }
         const name = clean(d.item) || "(아이디어/아이템 이름)";
         let s = `‘${name}’은(는) 아래의 차별화 요소로 경쟁 제품과 다르게 만든 아이템입니다.\n\n`;
         rs.forEach((r, i) => { const it = cardOf(r); s += `${i + 1}. ${it.n}${clean(r.idea) ? " — " + clean(r.idea) : ""}\n   (${it.desc.split(". ")[0].replace(/\.$/, "")}.)\n`; });
+        const wn = cmpWins(); if(wn.length) s += `\n경쟁사와 비교하면 ${wn.join(", ")}에서 앞섭니다.\n`;
         return s + `\n이 차별화를 통해 고객은 기존 제품에서 느꼈던 불편이나 아쉬움이 줄어들고, ‘${name}’을(를) 선택해야 하는 분명한 이유를 얻게 됩니다.\n[고객 한 줄 메시지] (이 아이템이 고객에게 약속하는 것을 한 문장으로 적어 보세요.)`;
       }}
   ],
-  extraChecks: () => [[d.mode === "solo" ? "참여자 이름" : "팀 이름 · 팀원", d.mode === "solo" ? !!clean(d.solo) : !!(clean(d.team) || clean(d.members))], ["아이디어/아이템 이름", !!clean(d.item)], ["차별화 아이디어 1개 이상 입력", d.rows.some(r => r.id !== null && clean(r.idea))], ["차별화 설명 작성", !!clean(d.desc)]],
+  extraChecks: () => [[d.mode === "solo" ? "참여자 이름" : "팀 이름 · 팀원", d.mode === "solo" ? !!clean(d.solo) : !!(clean(d.team) || clean(d.members))], ["아이디어/아이템 이름", !!clean(d.item)], ["차별화 아이디어 1개 이상 입력", d.rows.some(r => r.id !== null && clean(r.idea))], ["경쟁사 비교표 작성 (경쟁사·비교요소)", !!cmpDoc() && cmpState().names.some(n => clean(n))], ["차별화 설명 작성", !!clean(d.desc)]],
   doc(){
     return {info: [...(d.mode === "solo" ? [["참여 형태", "개인"], ["참여자", d.solo]] : [["참여 형태", "팀"], ["팀 이름", d.team], ["팀원", d.members]]), ["아이디어/아이템", d.item]],
-      tables: [{head: ["번호", "차별화 카드", "차별화 아이디어"], widths: [900, 2600, 6800], rows: d.rows.map((r, i) => [i + 1, cardOf(r) ? cardOf(r).n : "-", clean(r.idea) || "-"]).filter((x, i) => d.rows[i].id !== null || clean(d.rows[i].idea))}],
+      tables: [{head: ["번호", "차별화 카드", "차별화 아이디어"], widths: [900, 2600, 6800], rows: d.rows.map((r, i) => [i + 1, cardOf(r) ? cardOf(r).n : "-", clean(r.idea) || "-"]).filter((x, i) => d.rows[i].id !== null || clean(d.rows[i].idea))}, ...(cmpDoc() ? [cmpDoc()] : [])],
       texts: [{title: "차별화 아이디어 설명", text: d.desc}]};
   }
 };
@@ -639,7 +694,7 @@ async function makePptx(){
   });
   slides.push({bg: "F1F5F9", xml: s1, media: m1});
   // 2쪽 이후 : 글 · 이미지
-  const imgs = (D.images || []).filter(x => x.src), texts = (D.texts || []).filter(x => clean(x.text)), tabs = D.tables || [];
+  const imgs = (D.images || []).filter(x => x.src), texts = (D.texts || []).filter(x => clean(x.text)), tabs = (D.tables || []).filter(t => !t.cmp), cmpT = (D.tables || []).find(t => t.cmp);
   if(imgs.length || texts.length || tabs.length){
     const m2 = []; let s2 = box(40, 12, 1400, 60, {name: "제목2", paras: [{text: GW.sheetTitle + " — 정리", sz: 26, b: 1}], anchor: "ctr"}); let y = 90;
     imgs.forEach((im, k) => { const rid = "rId" + (2 + m2.length); const raw = im.src.split(",")[1], ext = /jpeg/.test(im.src) ? "jpg" : "png"; m2.push({rid, name: "img" + k + "." + ext, b64: raw}); s2 += box(40, y, 700, 30, {name: "그림제목" + k, paras: [{text: im.title, sz: 13, b: 1, color: "0369A1"}]}) + pic(rid, 40, y + 34, 700, 440, "그림:" + im.title); });
@@ -647,6 +702,13 @@ async function makePptx(){
     texts.forEach((t, k) => { const lines = clean(t.text).split("\n").length + Math.ceil(clean(t.text).length / (tw / 14)), hh = Math.min(380, Math.max(110, 40 + lines * 22)); if(ty + hh > 880) return; s2 += box(tx, ty, tw, hh, {name: "내용:" + t.title, geom: "roundRect", fill: "FFFFFF", line: "CBD5E1", paras: [{text: t.title, sz: 13, b: 1, color: "0369A1"}, {text: clean(t.text), sz: 11.5}]}); ty += hh + 12; });
     tabs.forEach((tb, k) => { const lines = tb.rows.map(r => r.map(c => String(c ?? "-")).join("   |   ")); const hh = Math.min(380, 50 + lines.length * 24); if(ty + hh > 880) return; s2 += box(tx, ty, tw, hh, {name: "표" + k, geom: "roundRect", fill: "FFFFFF", line: "CBD5E1", paras: [{text: tb.head.join("   |   "), sz: 12, b: 1, color: "0369A1"}, ...lines.map(l => ({text: l, sz: 11}))]}); ty += hh + 12; });
     slides.push({bg: "F8FAFC", xml: s2, media: m2});
+  }
+  if(cmpT){   // 경쟁사 비교표 : 진짜 표로 한 쪽에
+    const n = cmpT.head.length, W = 1520, c0 = Math.round(W * 0.2), cw = [c0, ...Array.from({length: n - 1}, () => Math.floor((W - c0) / (n - 1)))], rh = 56, ln = t => `<a:${t} w="6350"><a:solidFill><a:srgbClr val="CBD5E1"/></a:solidFill></a:${t}>`;
+    const cell = (txt, o) => `<a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr lang="ko-KR" sz="${Math.round(o.sz * 100)}" b="${o.b ? 1 : 0}" dirty="0"><a:solidFill><a:srgbClr val="${o.color}"/></a:solidFill><a:latin typeface="맑은 고딕"/><a:ea typeface="맑은 고딕"/></a:rPr><a:t>${esc(String(txt))}</a:t></a:r></a:p></a:txBody><a:tcPr marL="91440" marR="91440" marT="45720" marB="45720" anchor="ctr">${ln("lnL")}${ln("lnR")}${ln("lnT")}${ln("lnB")}<a:solidFill><a:srgbClr val="${o.fill}"/></a:solidFill></a:tcPr></a:tc>`;
+    const trs = [cmpT.head, ...cmpT.rows].map((r, ri) => `<a:tr h="${E(rh)}">${r.map((v, ci) => cell(v, ri === 0 ? {sz: 14, b: 1, color: "FFFFFF", fill: ci === 1 ? "D97706" : "4472C4"} : {sz: 13, b: ci === 0, color: "0F172A", fill: ci === 1 ? "FEF3C7" : ri % 2 ? "CFD5EA" : "E9EBF5"})).join("")}</a:tr>`).join("");
+    const tbl = `<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="${++sid}" name="경쟁사 비교표"/><p:cNvGraphicFramePr><a:graphicFrameLocks noGrp="1"/></p:cNvGraphicFramePr><p:nvPr/></p:nvGraphicFramePr><p:xfrm><a:off x="${E(40)}" y="${E(110)}"/><a:ext cx="${E(W)}" cy="${E(rh * (cmpT.rows.length + 1))}"/></p:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr firstRow="1"/><a:tblGrid>${cw.map(w => `<a:gridCol w="${E(w)}"/>`).join("")}</a:tblGrid>${trs}</a:tbl></a:graphicData></a:graphic></p:graphicFrame>`;
+    slides.push({bg: "F8FAFC", xml: box(40, 14, 1400, 70, {name: "제목3", paras: [{text: "경쟁사 비교표", sz: 26, b: 1}], anchor: "ctr"}) + tbl + box(40, 130 + rh * (cmpT.rows.length + 1), 1520, 40, {name: "안내", paras: [{text: "★ = 당사가 앞서는 요소 · 경쟁사 칸은 확인한 내용을 근거로 작성", sz: 12, color: "64748B"}]}), media: []});
   }
   const N = slides.length, clr = (n, v) => `<a:${n}><a:srgbClr val="${v}"/></a:${n}>`;
   const theme = HDR + `<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="GW"><a:themeElements><a:clrScheme name="GW">${clr("dk1", "000000")}${clr("lt1", "FFFFFF")}${clr("dk2", "0F172A")}${clr("lt2", "F8FAFC")}${clr("accent1", "1D4ED8")}${clr("accent2", "059669")}${clr("accent3", "EA580C")}${clr("accent4", "7C3AED")}${clr("accent5", "DB2777")}${clr("accent6", "F4C20D")}${clr("hlink", "1D4ED8")}${clr("folHlink", "7C3AED")}</a:clrScheme><a:fontScheme name="GW"><a:majorFont><a:latin typeface="맑은 고딕"/><a:ea typeface="맑은 고딕"/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="맑은 고딕"/><a:ea typeface="맑은 고딕"/><a:cs typeface=""/></a:minorFont></a:fontScheme><a:fmtScheme name="GW"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst><a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln><a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln></a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>`;
