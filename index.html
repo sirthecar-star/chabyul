@@ -361,7 +361,7 @@ const GW = {
   fullMsg: c => "차별화 카드는 최대 4개까지 고를 수 있어요.\n다른 카드를 고르려면 먼저 선택을 취소해 주세요.",
   globals: [],
   slotFields: [{k: "idea", label: "차별화 아이디어", type: "textarea", ph: "선택한 이유나 좀더 구체적인 설명을 추가해주세요", wide: true}],
-  init(){ ["item", "desc", "team", "members", "solo"].forEach(k => { if(d[k] === undefined) d[k] = ""; }); if(d.author && !d._mig){ d._mig = true; if(!d.team && !d.solo){ d.mode = "solo"; d.solo = d.author; } } d.mode = d.mode === "solo" ? "solo" : "team"; cmpState(); },
+  init(){ ["item", "desc", "team", "members", "solo"].forEach(k => { if(d[k] === undefined) d[k] = ""; }); if(d.author && !d._mig){ d._mig = true; if(!d.team && !d.solo){ d.mode = "solo"; d.solo = d.author; } } d.mode = d.mode === "solo" ? "solo" : "team"; ["item", "team", "members", "solo"].forEach(k => { if(d[k] && typeof d[k] === "object") d[k] = ""; }); cmpState(); },
   sections: [
     {t: "slots", title: "카드별 차별화 아이디어", sub: "카드마다 어떤 점이 달라지는지 적어 보세요", coach: true},
     {t: "draft", k: "desc", title: "차별화 아이디어 설명", sub: "카드와 아이디어를 엮어 하나의 설명으로", btn: "설명 초안 만들기", note: "선택한 카드와 아이디어로 초안을 만들어 드려요", ph: "차별화 관점에서 아이템/아이디어를 설명하세요", h: 200,
@@ -1166,6 +1166,105 @@ render();
 </script>
 
 
+<style>.refbox{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fcfbff}.refbox h4{margin:0 0 6px;font-size:15px}.refbox h4 small{font-weight:500;color:var(--sub)}.refgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;font-size:14px;margin-bottom:8px}.refgrid b{color:#5b21b6;margin-right:6px}.reft{width:100%;border-collapse:collapse;font-size:13.5px;margin:4px 0 8px}.reft th,.reft td{border:1px solid var(--line);padding:5px 9px;text-align:left;vertical-align:top}.reft th{background:#f1f5f9}.reffinal{background:#f5f3ff;border-radius:10px;padding:8px 12px;font-size:14px}.reffinal b{color:#5b21b6}.reffinal div{white-space:pre-wrap;margin-top:3px}.refl{margin:4px 0;padding-left:20px;font-size:13.5px}.refl li{margin:3px 0}.refbox .note{color:var(--sub);font-size:12.5px;margin:8px 0 0}@media(max-width:700px){.refgrid{grid-template-columns:1fr}}</style>
+<script>
+// ═════════ 점검 · 저장 화면 : ✔/✖ 체크 대신 ‘지금까지 정리한 내용’을 참고용으로 보여 준다 (네이밍·로고와 같은 방식) ═════════
+(function(){
+  if(typeof window.refHtml === "function") return;   // 이미 이 방식을 쓰는 앱(네이밍·로고)은 그대로 둔다
+  const clip = (s, n) => { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; };
+  window.checkHtml = function(){
+    const D = docBlocks(), info = (D.info || []).filter(x => clean(x[1])), miss = checks().filter(x => !x[1]).map(x => x[0]);
+    const tabs = (D.tables || []).filter(t => t.rows && t.rows.length).slice(0, 3), texts = D.texts || [];
+    return `<div class="refbox"><h4>📌 지금까지 정리한 내용 <small>(참고용 · 비어 있어도 저장할 수 있어요)</small></h4>
+      ${info.length ? `<div class="refgrid">${info.map(x => `<div><b>${esc(x[0])}</b> ${esc(clip(x[1], 80))}</div>`).join("")}</div>` : ""}
+      ${tabs.map(t => `<table class="reft"><tr>${t.head.map(h => `<th>${esc(h)}</th>`).join("")}</tr>${t.rows.slice(0, 8).map(r => `<tr>${r.map(c => `<td>${esc(clip(c, 60)) || "-"}</td>`).join("")}</tr>`).join("")}</table>`).join("")}
+      ${texts.map(x => `<div class="reffinal" style="margin-top:8px"><b>${esc(x.title)}</b><div>${clean(x.text) ? esc(clip(x.text, 240)) : "아직 작성하지 않았어요"}</div></div>`).join("")}
+      ${miss.length ? `<h4 style="margin-top:12px">🔎 아직 채우지 않은 곳 ${miss.length}개 <small>(저장은 할 수 있어요)</small></h4><ul class="refl">${miss.map(m => `<li>${esc(m)}</li>`).join("")}</ul>` : `<p class="note">모든 항목을 채웠어요.</p>`}
+      <p class="note">📌 ${esc(EV_NOTE)}</p></div>`;
+  };
+  try { refreshAll(); } catch(e){}
+})();
+</script>
+
+
+
+<!--AI-HELP-->
+<style>.aih{border:1px solid var(--line,#d6dde9);border-left:5px solid #7c3aed;border-radius:12px;padding:14px 16px;margin:14px 0;background:var(--card,#fff)}.aih>summary{cursor:pointer;list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-weight:700;font-size:16px}.aih>summary::-webkit-details-marker{display:none}.aih>summary .aihopen{background:#f5f3ff;border:1px solid #c4b5fd;color:#4c1d95;border-radius:8px;padding:7px 14px}.aih[open]>summary{margin-bottom:6px}.aih>summary small{font-weight:500;color:var(--sub,#586579);font-size:12.5px;margin-left:6px}.aih .aihbar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.aih .aihbar button,.aih .aihbar a{border:1px solid #c4b5fd;background:#f5f3ff;color:#4c1d95;border-radius:8px;padding:6px 11px;font-size:13.5px;cursor:pointer;text-decoration:none;font-family:inherit}.aih .aihbar button.pri{background:#5b21b6;color:#fff;border-color:#5b21b6}.aih label{display:block;font-weight:700;margin:10px 0 2px;font-size:14px}.aih textarea{width:100%;box-sizing:border-box;border:1px solid var(--line,#d6dde9);border-radius:8px;padding:8px 10px;font:inherit;font-size:14px;line-height:1.5}.aih .aihh{color:var(--sub,#586579);font-size:12.5px;margin:4px 0}.aih .aihw{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;padding:7px 10px;font-size:13px;margin:6px 0}</style>
+<script>
+// ═════════ AI 도움요청 (선택) : 정리한 내용으로 질문을 만들고, 복사하거나 API 키로 바로 질문해 핵심만 받는다 (고객 검증 워크북·마케팅분석과 같은 방식) ═════════
+(function(){
+  if(window.__aih) return; window.__aih = 1;
+  const CFG = {"name":"차별화","role":"경쟁 전략에 밝은 창업 멘토","aim":"차별점이 정말 다른지, 경쟁사가 쉽게 따라 할 수 있는 점, 고객이 체감할 근거","heads":["차별점이 약한 부분","경쟁사가 따라 하기 쉬운 점","고객이 체감할 근거","차별화 보강 제안"],"doc":true};
+  const AKEY = "startup-workbook-apikey", $q = s => document.querySelector(s), esc2 = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+  const aiKey = () => { try { return localStorage.getItem(AKEY) || ""; } catch(e){ return ""; } };
+  const cl = s => String(s == null ? "" : s).trim();
+  const tpl = () => CFG.heads.map(h => "■ " + h + ": ").join("\n");
+  const SKIP = /^(참여 형태|팀 이름|팀원|팀명|참여자|작성자|성명|이름|연락처|대표자)/, SKIPALL = /참여자명|팀 이름|팀원/;
+  // 지금까지 정리한 내용을 글로 모은다 (이름·팀원 같은 신상 줄은 뺀다)
+  function snap(){
+    let lines = [];
+    try {
+      const tmp = document.createElement("div"); tmp.innerHTML = (typeof docHtml === "function") ? docHtml() : "";
+      tmp.querySelectorAll("table").forEach(t => { const rows = [...t.querySelectorAll("tr")].map(tr => [...tr.children].map(c => cl(c.textContent).replace(/\s+/g, " "))).filter(r => r.some(c => c && c !== "-"));
+        rows.forEach(r => { if(SKIP.test(r[0] || "") || SKIPALL.test(r.join(" "))) return; lines.push(r.filter(c => c && c !== "-").join(" : ")); }); });
+      tmp.querySelectorAll("h5").forEach(h => { const a = h.nextElementSibling, t = a ? cl(a.textContent) : ""; if(t && t !== "(작성 전)" && !/^(AI에게|AI 답변|읽는 법)/.test(h.textContent)) lines.push(cl(h.textContent) + " : " + t.replace(/\s+/g, " ")); });
+    } catch(e){}
+    let s = lines.filter(Boolean).join("\n"); if(cl(d.item) && !s.includes(cl(d.item))) s = "아이템 : " + cl(d.item) + "\n" + s;
+    [d.team, d.members, d.solo, d.author].map(cl).filter(v => v.length > 1).forEach(v => { s = s.split(v).join("○○"); }); if(s.length > 3500) s = s.slice(0, 3500) + "\n…(이하 생략)";
+    return s || "(아직 작성한 내용이 없어요)";
+  }
+  const makePrompt = () => `너는 ${CFG.role}야. 아래는 내가 정리한 ${CFG.name} 내용이야.\n\n${snap()}\n\n이 내용에서 ${CFG.heads.map((h, i) => "①②③④⑤"[i] + " " + h).join(", ")}을(를) 알려줘. 각 항목은 한 줄로, 근거 없이 단정하지 말고 내가 확인해 볼 점도 함께 알려줘.`;
+  const html = () => `<details class="card aih nodoc" id="aihcard" ${window.__aihOpen || cl(d.aiPrompt) || cl(d.aiAnswer) ? "open" : ""}><summary><span class="aihopen">🤖 AI의 도움이 필요하면 눌러 보세요</span><small>(선택 · 안 써도 저장할 수 있어요)</small></summary>
+    <div class="aihw">⚠ 입력한 내용이 AI 회사 서버로 전송돼요. 실명·연락처 같은 개인정보와 공개하면 안 되는 영업비밀은 빼고 사용하세요.</div>
+    <label>내가 AI에게 질문한 프롬프트</label>
+    <div class="aihbar"><button type="button" data-aih="prompt">✨ 프롬프트 초안 만들기</button><button type="button" data-aih="copy">📋 프롬프트 복사</button><button type="button" class="pri" data-aih="ask">🤖 AI에게 질문하고 핵심 정리</button><button type="button" data-aih="key" title="AI 연결 설정">🔑</button><a href="https://claude.ai" target="_blank" rel="noopener">Claude 열기 ↗</a><a href="https://chatgpt.com" target="_blank" rel="noopener">ChatGPT 열기 ↗</a></div>
+    <div class="aihh">① 초안을 고치고 → ② 복사해서 AI에 붙여넣거나 ‘AI에게 질문’ 버튼(키 필요) → ③ 받은 답변의 핵심만 아래에 정리하세요. <span id="aihmsg"></span></div>
+    <textarea data-aih-k="aiPrompt" style="min-height:190px" placeholder="‘프롬프트 초안 만들기’를 누르면 지금까지 쓴 내용으로 질문이 만들어져요">${esc2(d.aiPrompt)}</textarea>
+    <label>AI 답변 핵심 내용</label>
+    <div class="aihbar"><button type="button" data-aih="tpl">✨ 정리 틀 만들기</button></div><div class="aihh">답변 전체를 붙이지 말고 핵심만 한 줄씩 적어 보세요.</div>
+    <textarea data-aih-k="aiAnswer" style="min-height:150px">${esc2(d.aiAnswer)}</textarea>${CFG.doc ? "" : `<div class="aihh">이 내용은 저장 파일에는 남지만, 제출용 양식 문서(Word)에는 들어가지 않아요.</div>`}</details>`;
+  function ensureAi(){ if(typeof d.aiPrompt !== "string") d.aiPrompt = ""; if(typeof d.aiAnswer !== "string") d.aiAnswer = ""; }
+  function inject(){
+    const pg = $q("#page"); if(!pg || $q("#aihcard")) return;
+    const tgt = [...pg.querySelectorAll(".card.nodoc")].find(c => c.querySelector(".final") && /점검|저장/.test((c.querySelector("h2") || {}).textContent || "")); if(!tgt) return;
+    ensureAi(); tgt.insertAdjacentHTML("beforebegin", html());
+  }
+  const _rd = window.render; window.render = function(){ const r = _rd.apply(this, arguments); try { inject(); } catch(e){} return r; };
+  const say = t => { const m = $q("#aihmsg"); if(m){ m.textContent = t; setTimeout(() => { if(m.textContent === t) m.textContent = ""; }, 2500); } };
+  const setTa = (k, v) => { d[k] = v; const ta = $q(`[data-aih-k="${k}"]`); if(ta) ta.value = v; try { persist(); } catch(e){} if(typeof refreshAll === "function") try { refreshAll(); } catch(e){} };
+  async function ask(){
+    ensureAi(); const p = cl(d.aiPrompt); if(!p){ alert("먼저 프롬프트 초안을 만들고 수정해 주세요."); return; }
+    if(!aiKey()){ alert("AI 연결 키가 필요해요. 🔑 버튼에서 API 키를 먼저 입력해 주세요.\n(키가 없으면 ‘프롬프트 복사’로 AI에 직접 질문한 뒤 핵심만 적어도 돼요.)"); return; }
+    if(cl(d.aiAnswer) && !confirm("이미 작성한 핵심 내용이 있어요. AI 정리로 바꿀까요?")) return;
+    const b = $q('[data-aih="ask"]'); if(b){ b.disabled = true; b.textContent = "⏳ AI가 답변 중…"; }
+    try {
+      const r = await fetch("https://api.anthropic.com/v1/messages", {method: "POST", headers: {"content-type": "application/json", "x-api-key": aiKey(), "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true"},
+        body: JSON.stringify({model: "claude-haiku-4-5-20251001", max_tokens: 900, system: `너는 ${CFG.role}다. 학생이 정리한 ${CFG.name} 내용을 보고, 반드시 핵심만 아래 형식 그대로 한국어로 출력한다. 각 항목은 한 줄(60자 내외), 다른 말은 쓰지 않는다.\n${tpl()}`, messages: [{role: "user", content: p}]})});
+      const j = await r.json(); if(!r.ok) throw new Error((j.error && j.error.message) || r.status);
+      setTa("aiAnswer", j.content.map(c => c.text || "").join("").trim());
+    } catch(e){ alert("AI 호출 실패: " + e.message + "\n키가 맞는지 확인하거나 ‘프롬프트 복사’를 이용해 주세요."); }
+    const b2 = $q('[data-aih="ask"]'); if(b2){ b2.disabled = false; b2.textContent = "🤖 AI에게 질문하고 핵심 정리"; }
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest("[data-aih]"); if(!b) return; const op = b.dataset.aih; ensureAi();
+    if(op === "prompt"){ if(cl(d.aiPrompt) && !confirm("지금 쓴 프롬프트를 초안으로 바꿀까요?")) return; setTa("aiPrompt", makePrompt()); }
+    else if(op === "tpl"){ if(cl(d.aiAnswer) && !confirm("지금 쓴 내용을 정리 틀로 바꿀까요?")) return; setTa("aiAnswer", tpl()); }
+    else if(op === "copy"){ if(!cl(d.aiPrompt)){ alert("먼저 프롬프트 초안을 만들어 주세요."); return; }
+      const bad = () => alert("복사하지 못했어요. 칸의 글을 직접 선택해 복사해 주세요.");
+      if(navigator.clipboard) navigator.clipboard.writeText(d.aiPrompt).then(() => say("✔ 복사됨"), bad); else bad(); }
+    else if(op === "key"){ const k = prompt("AI 연결용 Anthropic API 키를 입력하세요.\n(이 컴퓨터 브라우저에만 저장되고, 저장 파일에는 들어가지 않아요. 지우려면 빈칸으로 확인)", aiKey()); if(k === null) return; try { k.trim() ? localStorage.setItem(AKEY, k.trim()) : localStorage.removeItem(AKEY); } catch(e){} }
+    else if(op === "ask") ask();
+  });
+  document.addEventListener("toggle", e => { if(e.target && e.target.id === "aihcard") window.__aihOpen = e.target.open; }, true);
+  document.addEventListener("input", e => { const t = e.target, k = t.dataset && t.dataset.aihK; if(!k) return; ensureAi(); d[k] = t.value; try { persist(); } catch(er){} });
+  // 문서(PPT·Word·미리보기)에 넣는 앱 : 카드 선택형 엔진은 doc()에 글 블록을 더한다
+  if(CFG.doc && typeof GW !== "undefined" && typeof GW.doc === "function"){
+    const _doc = GW.doc; GW.doc = function(){ const r = _doc.apply(this, arguments); if(cl(d.aiPrompt) || cl(d.aiAnswer)) r.texts = [...(r.texts || []), {title: "AI에게 질문한 프롬프트", text: d.aiPrompt}, {title: "AI 답변 핵심 내용", text: d.aiAnswer}]; return r; };
+  }
+  try { ensureAi(); render(); } catch(e){}
+})();
+</script>
+
 <!--SS-LINK-->
 <script>
 // ═════════ 창업시뮬 연결 모듈 (각 앱에 삽입) v1.0 · 1단계: 발견·설계 ═════════
@@ -1247,7 +1346,7 @@ let BASE_FILL = null; const curFill = () => (typeof d !== "undefined" && d) ? fi
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 
 // ───── 새로 만든 가져오기 함수들 ─────
-const T = v => String(v == null ? "" : v).trim();
+const T = v => (v != null && typeof v === "object") ? "" : String(v == null ? "" : v).trim();
 const setIf = (k, v) => { v = T(v); if(v && !T(d[k])){ d[k] = v; return 1; } return 0; };
 const common = x => { let n = 0; ["item", "team", "members", "solo"].forEach(k => { n += 0; setIf(k, x[k]); }); return n; };
 const redo = (...ks) => { d.manual = d.manual || {}; ks.forEach(k => { d.manual[k] = false; }); try { if(typeof ensure === "function") ensure(); if(typeof allRecompose === "function") allRecompose(); else if(typeof recompose === "function" && typeof COMPOSE === "object") Object.keys(COMPOSE).forEach(k => { try { recompose(k); } catch(e){} }); render(); if(typeof persist === "function") persist(); } catch(e){ try { render(); } catch(e2){} } };
