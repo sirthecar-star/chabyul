@@ -233,14 +233,14 @@
 </head>
 <body>
 <header>
-  <h1>💡 차별화 도우미</h1><span class="st" id="status">자동 저장됨</span>
+  <h1>💡 차별화 도우미</h1>
   <span class="sp"></span>
 
   <button id="btnDir">📁 저장 폴더 지정</button>
   <button id="btnSave">💾 파일로 저장</button>
   <label class="btn">📂 불러오기<input type="file" id="fileLoad" accept=".json" hidden></label>
   <button id="btnReset">🗑 새로 시작</button>
-  <span id="ver" title="파일로 저장할 때마다 1씩 올라갑니다">v0</span>
+  <span id="ver" style="display:none">v0</span><span class="st" id="status">자동 저장됨</span>
 </header>
 <div class="steps" id="steps"></div>
 <div class="wrap">
@@ -291,7 +291,8 @@ async function saveFile(blob, name){
   status.textContent = "⬇ 다운로드 폴더에 저장됨(저장 폴더 미지정): " + name;
 }
 
-const fname = ext => `${GW.filePre}_${String((d.mode === "solo" ? d.solo : (d.team || d.members)) || d.author || d.brand || d.company || "무명").replace(/[\\/:*?"<>|]/g, "")}_v${d.version || 0}.${ext}`;
+const fnm = (a, fb) => { for(const v of a){ const s = typeof v === "string" ? v.trim() : typeof v === "number" ? String(v) : ""; if(s) return s; } return fb; };
+const fname = ext => `${GW.filePre}_${fnm((d.mode === "solo" ? [d.solo] : [d.team, d.members]).concat([d.author, d.brand, d.company]), "무명").replace(/[\\/:*?"<>|]/g, "")}_v${d.version || 0}.${ext}`;
 
 
 
@@ -645,9 +646,30 @@ $("btnReset").onclick = () => { if(!confirm('선택한 카드와 입력한 내�
 // ───── 시트 그림 (PNG · 미리보기 · PPT 1쪽과 같은 모양) ─────
 const ROWCOL = ["#dc2626", "#2563eb", "#0f766e", "#7c3aed", "#ea580c", "#be185d", "#0891b2", "#65a30d"];
 function sheetLines(r, i){ return (GW.slotFields || []).filter(f => !f.slots || i === undefined || f.slots.includes(i)).map(f => [f.label, clean(r[f.k]) ? clean(r[f.k]) + (f.unit ? " " + f.unit : "") : ""]).filter(x => x[1]); }
+// 카드 줄 아래에 차별화 설명 · 경쟁사 비교표를 이어 그린다 (draw=false 이면 높이만 잰다)
+function sheetTail(g, W, y0, draw){
+  const x = 40, w = W - 80, desc = clean(d.desc), cmp = cmpDoc(); let y = y0;
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+  const card = (yy, hh) => { g.save(); g.shadowColor = "rgba(15,23,42,.13)"; g.shadowBlur = 12; g.shadowOffsetY = 3; g.fillStyle = "#fff"; rr(g, x, yy, w, hh, 16); g.fill(); g.restore(); };
+  g.font = `500 19px ${FONT}`; const dl = desc ? wrapT(g, desc, w - 48) : ["(작성 전)"], dh = 62 + dl.length * 28;
+  if(draw){ card(y, dh); g.fillStyle = "#0369a1"; g.font = `800 22px ${FONT}`; g.fillText("차별화 아이디어 설명", x + 24, y + 38); g.font = `500 19px ${FONT}`; g.fillStyle = desc ? "#1e293b" : "#94a3b8"; dl.forEach((l, k) => g.fillText(l, x + 24, y + 72 + k * 28)); }
+  y += dh + 16;
+  const n = cmp ? cmp.head.length : 0, c0 = Math.round((w - 48) * 0.2), cw = n > 1 ? Math.floor((w - 48 - c0) / (n - 1)) : 0, LH = 24;
+  g.font = `500 17px ${FONT}`;
+  const rowsL = cmp ? [cmp.head, ...cmp.rows].map(r => r.map((v, ci) => wrapT(g, String(v ?? "-"), (ci ? cw : c0) - 20).slice(0, 4))) : [], rowsH = rowsL.map(r => Math.max(...r.map(l => l.length)) * LH + 16);
+  const th = 62 + (cmp ? rowsH.reduce((a, b) => a + b, 0) : 36) + 12;
+  if(draw){
+    card(y, th); g.fillStyle = "#0369a1"; g.font = `800 22px ${FONT}`; g.fillText("경쟁사 비교표", x + 24, y + 38);
+    if(!cmp){ g.fillStyle = "#94a3b8"; g.font = `500 19px ${FONT}`; g.fillText("(작성 전)", x + 24, y + 72); }
+    else { let ty = y + 52; rowsL.forEach((r, ri) => { let tx = x + 24; r.forEach((ls, ci) => { const cwid = ci ? cw : c0; g.fillStyle = ri === 0 ? (ci === 1 ? "#d97706" : "#4472c4") : (ci === 1 ? "#fef3c7" : ri % 2 ? "#cfd5ea" : "#e9ebf5"); g.fillRect(tx, ty, cwid, rowsH[ri]); g.strokeStyle = "#cbd5e1"; g.lineWidth = 1; g.strokeRect(tx, ty, cwid, rowsH[ri]); g.fillStyle = ri === 0 ? "#fff" : "#0f172a"; g.font = `${ri === 0 || ci === 0 ? 800 : 500} 17px ${FONT}`; ls.forEach((l, k) => g.fillText(l, tx + 10, ty + 24 + k * LH)); tx += cwid; }); ty += rowsH[ri]; }); }
+  }
+  return y + th + 20;
+}
 function drawSheet(cv){
-  const g = cv.getContext("2d"), W = cv.width, H = cv.height; g.textBaseline = "alphabetic"; g.textAlign = "left";
-  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, "#eef2f7"); bg.addColorStop(1, "#f8fafc"); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  const W = cv.width, H = 900, tg = document.createElement("canvas").getContext("2d");
+  cv.height = Math.max(H, Math.ceil(sheetTail(tg, W, H - 6, false)));   // 아래쪽 설명·비교표 높이만큼 늘림
+  const g = cv.getContext("2d"), HT = cv.height; g.textBaseline = "alphabetic"; g.textAlign = "left";
+  const bg = g.createLinearGradient(0, 0, 0, HT); bg.addColorStop(0, "#eef2f7"); bg.addColorStop(1, "#f8fafc"); g.fillStyle = bg; g.fillRect(0, 0, W, HT);
   const hd = g.createLinearGradient(0, 0, W, 0); hd.addColorStop(0, "#0f2a4a"); hd.addColorStop(1, GW.frame); g.fillStyle = hd; g.fillRect(0, 0, W, 100);
   const D = docBlocks(); g.fillStyle = "#fff"; g.font = `800 40px ${FONT}`; g.fillText(GW.sheetTitle, 40, 52); g.font = `500 19px ${FONT}`; g.fillStyle = "rgba(255,255,255,.85)"; g.fillText(D.info.filter(x => clean(x[1])).slice(0, 3).map(x => x[0] + " " + x[1]).join("   ·   ") || " ", 42, 84);
   const top = 116, avail = H - top - 20, gap = 10, rh = Math.min(170, (avail - gap * (MAXN - 1)) / MAXN), cw = Math.min(rh - 12, 146);
@@ -663,6 +685,7 @@ function drawSheet(cv){
     if(!lines.length){ g.fillStyle = "#64748b"; wrapT(g, c.desc, w - (tx - x) - 30).slice(0, rh > 100 ? 3 : 2).forEach((l, k) => g.fillText(l, tx, ly + k * lh)); }
     else lines.forEach(([lb, v]) => { if(ly > y + rh - 8) return; g.fillStyle = "#64748b"; g.font = `700 ${fs - 2}px ${FONT}`; g.fillText(lb, tx, ly); const lw = g.measureText(lb).width + 12; g.fillStyle = "#1e293b"; g.font = `500 ${fs}px ${FONT}`; const ls = wrapT(g, v, w - (tx - x) - 40 - lw); ls.slice(0, 2).forEach((l, k) => { if(ly + k * lh < y + rh - 6) g.fillText(l, tx + lw, ly + k * lh); }); ly += Math.min(ls.length, 2) * lh; });
   }
+  sheetTail(g, W, H - 6, true);
   if(GW.sheetExtra) GW.sheetExtra(g, W, H);
 }
 function sheetBlob(){ return new Promise(res => { const cv = document.createElement("canvas"); cv.width = 1600; cv.height = 900; drawSheet(cv); cv.toBlob(b => res(b), "image/png"); }); }
